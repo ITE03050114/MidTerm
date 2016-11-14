@@ -1,115 +1,81 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>    //strlen
-#include<sys/socket.h>
-#include<arpa/inet.h> //inet_addr
-#include<unistd.h>    //write
-#include <time.h>
-int main(int argc , char *argv[])
-{
-time_t mytime;
-mytime=time(NULL);
+#include <stdio.h>
+#include <stdlib.h>
 
-int socket_desc , new_socket , c;
-int answer[8];//猜數答案和使用者的回答
-int count1,count2,countA,countB;//記數用變數
+#include <netdb.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <string.h>
 
-struct sockaddr_in server , client;
-char *message;
-char reply[8],compare[8],message2[50];
 
-//Create socket
-socket_desc = socket(AF_INET , SOCK_STREAM , 0);
-if (socket_desc == -1)
-{
-printf("Could not create socket");
-}
-//Prepare the sockaddr_in structure
-server.sin_family = AF_INET;
-server.sin_addr.s_addr = INADDR_ANY;
-server.sin_port = htons( 8787 );
-//Bind
-if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
-{
-puts("bind failed");
-return 1;
-}
-puts("bind done");
-//Listen
-listen(socket_desc , 3);
-//Accept and incoming connection
-puts("Waiting for incoming connections...");
-c = sizeof(struct sockaddr_in);
-while( (new_socket = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) )
-{
-puts("Connection accepted");
+#include "doprocessing.h"
 
-countA=0; countB=0;
-srand( time(NULL) ); 
-for(count1=0;count1<4;count1++)
-{
-  answer[count1]=rand()%10; //亂數產生1~10任意數字並放入陣列內
-  for(count2=0;count2<count1;count2++) 
-  { 
-     if(answer[count1]==answer[count2]) //比較是否重複
-     {
-     count1--; //重複則重新產生
-     } 
-  }
-} 
-printf("Answer:%d%d%d%d\n",answer[0],answer[1],answer[2],answer[3]);
-//Reply to the client
-while(1)
-{
-	bzero(reply,8);
-	read(new_socket,reply,8);
-	compare[0]=(reply[0]-'0');
-	compare[1]=(reply[1]-'0');
-	compare[2]=(reply[2]-'0');
-	compare[3]=(reply[3]-'0');
-	
-	for(count1=0;count1<4;count1++)
-	{
-		if(answer[count1]==compare[count1]) //比較數字及位置相同的數
-		{
-			countA+=1;
-		}
-	}
-	
-	for(count2=0;count2<=3;count2++)
-	{
-		for(count1=0;count1<=3;count1++)
-		{
-			if(compare[count1]==answer[count2] && count1!=count2)
-			{
-				countB++;
-			}
-		}
-	}
 
-	if(countA==4)
-	{
-		message="This game end!!";
-		write(new_socket , message, strlen(message)+1);
-		return 1;
-	}
-	else
-	{
-		sprintf(message2,"%dA%dB",countA,countB);
-		write(new_socket , message2, strlen(message2)+1);
-		countA=0;countB=0;
-	}
-//	printf("Echoing back - %s",reply);
-//	printf("%d",reply[0]);
-	
-}
-//message = ctime(&mytime);
-//write(new_socket , message , strlen(message));
-}
-if (new_socket<0)
-{
-perror("accept failed");
-return 1;
-}
-return 0;
+int main( int argc, char *argv[] ) {
+   int sockfd, newsockfd, portno, clilen;
+   char buffer[256];
+   struct sockaddr_in serv_addr, cli_addr;
+   int n, pid;
+   
+   /* First call to socket() function */
+   sockfd = socket(AF_INET, SOCK_STREAM, 0);
+   
+   if (sockfd < 0) {
+      perror("ERROR opening socket");
+      exit(1);
+   }
+   
+   /* Initialize socket structure */
+   bzero((char *) &serv_addr, sizeof(serv_addr));
+   portno = 8787;
+   
+   serv_addr.sin_family = AF_INET;
+   serv_addr.sin_addr.s_addr = INADDR_ANY;
+   serv_addr.sin_port = htons(portno);
+   
+   /* Now bind the host address using bind() call.*/
+   if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+      perror("ERROR on binding");
+      exit(1);
+   }
+   
+   /* Now start listening for the clients, here
+      * process will go in sleep mode and will wait
+      * for the incoming connection
+   */
+  
+
+ 
+   printf("Welcome to this server, my process id is %d\n", getpid());
+
+   listen(sockfd,5);
+   clilen = sizeof(cli_addr);
+   
+   while (1) {
+      newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr,(socklen_t *)  &clilen);
+		
+      if (newsockfd < 0) {
+         perror("ERROR on accept");
+         exit(1);
+      }
+      
+      /* Create child process */
+      pid = fork();
+		
+      if (pid < 0) {
+         perror("ERROR on fork");
+         exit(1);
+      }
+      
+      if (pid == 0) {
+         /* This is the client process */
+         close(sockfd);
+         printf("New connection, my process id is %d\n", getpid());
+         doprocessing(newsockfd);
+         exit(0);
+      }
+      else {
+         close(newsockfd);
+      }
+		
+   } /* end of while */
 }
