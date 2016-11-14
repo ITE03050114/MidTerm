@@ -50,6 +50,11 @@ while(1)
 	}
 	puts("Reply received\n");
 	puts(server_reply);
+	if(strlen(server_reply)==15)
+	{
+		//printf("haha");
+		return 0;
+	}
 }
 return 0;
 }
