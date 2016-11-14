@@ -1,6 +1,6 @@
 all: server client doprocessing.o
 
-server: server.o
+server: server.o doprocessing.o
 	gcc -o server server.o doprocessing.o
 
 server.o: server.c
